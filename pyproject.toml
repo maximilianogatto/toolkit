@@ -1,0 +1,12 @@
+[project]
+name = "toolkit"
+version = "0.1.0"
+description = "Componentes propios y herramientas para el flujo de diseno y simulacion con Quantum Metal y SQDMetal"
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
