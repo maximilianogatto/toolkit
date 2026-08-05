@@ -23,6 +23,7 @@ import importlib
 import json
 from copy import deepcopy
 
+from qiskit_metal import Dict
 from qiskit_metal.designs.design_base import QDesign
 from qiskit_metal.designs.interface_components import Components
 
@@ -96,7 +97,12 @@ def load_design(filename: str) -> QDesign:
     for key, value in data["variables"].items():
         design.variables[key] = value
     for chip_name, chip_cfg in data["chips"].items():
-        design.chips[chip_name] = deepcopy(chip_cfg)
+        # `chip_cfg` is a plain dict (from json.load); `Dict(...)` -addict's constructor-
+        # recursively wraps nested dicts into addict.Dict so `design.chips[chip_name].material`
+        # (attribute access) works, not just `design.chips[chip_name]['material']`.
+        # `design.chips[chip_name] = deepcopy(chip_cfg)` would NOT do this: addict.Dict.__setitem__
+        # does not auto-wrap assigned plain dicts, only the constructor does.
+        design.chips[chip_name] = Dict(deepcopy(chip_cfg))
 
     for comp_data in data["components"]:
         comp_cls = getattr(importlib.import_module(comp_data["module"]), comp_data["class"])
