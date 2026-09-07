@@ -60,7 +60,7 @@ class DrivenModalSimOptions:
 
 
 @dataclass
-class PortOptions:
+class DrivenModalPortOptions:
     """Spec for a single simulation port. `type` selects which SQDMetal port constructor
     is used and which of the other fields apply.
 
@@ -105,7 +105,7 @@ def _to_user_options(conf: DrivenModalSimOptions, dielectric_material: str) -> d
     }
 
 
-def _create_port(driven_sim: PALACE_Driven_Simulation, subdesign, port: PortOptions) -> int:
+def _create_port(driven_sim: PALACE_Driven_Simulation, subdesign, port: DrivenModalPortOptions) -> int:
     """Create `port` on `driven_sim` and return its 1-indexed position (for `set_port_excitation`).
 
     `driven_sim._ports` is SQDMetal's own internal port list, appended to by each
@@ -146,7 +146,7 @@ def _create_port(driven_sim: PALACE_Driven_Simulation, subdesign, port: PortOpti
 def run_drivenmodal_sim(
     design,
     name: str,
-    ports: list[PortOptions],
+    ports: list[DrivenModalPortOptions],
     output_path: str,
     components: Optional[list[str]] = None,
     open_terminations: Optional[list[tuple[str, str]]] = None,
@@ -170,7 +170,7 @@ def run_drivenmodal_sim(
         design: full `QDesign` to pull `components` from.
         name: simulation name (also the output subfolder name).
         components: names of the components to keep; passed to `build_subdesign`.
-        ports: one `PortOptions` per port. Exactly one should have `excite=True`; if none do,
+        ports: one `DrivenModalPortOptions` per port. Exactly one should have `excite=True`; if none do,
             PALACE falls back to the first resistive (R>0) port.
         output_path: `sim_parent_directory` for `PALACE_Driven_Simulation`.
         sim_options: PALACE solver/mesh/sweep options. Defaults to `DrivenModalSimOptions()`.
@@ -193,8 +193,8 @@ def run_drivenmodal_sim(
 
     Raises:
         ValueError: if the design's substrate material isn't 'silicon' or 'sapphire' (the only
-            dielectrics PALACE_Driven_Simulation supports), or if a `PortOptions` entry is
-            invalid (see `PortOptions.__post_init__`).
+            dielectrics PALACE_Driven_Simulation supports), or if a `DrivenModalPortOptions` entry is
+            invalid (see `DrivenModalPortOptions.__post_init__`).
     """
     t_start = time.perf_counter()
     sim_options = sim_options or DrivenModalSimOptions()
@@ -234,7 +234,7 @@ def run_drivenmodal_sim(
             port_index = _create_port(driven_sim, subdesign, port)
             if port.excite:
                 if excitation_index is not None:
-                    raise ValueError("More than one PortOptions has excite=True; only one port "
+                    raise ValueError("More than one DrivenModalPortOptions has excite=True; only one port "
                                      "can be the excitation source.")
                 excitation_index = port_index
         if excitation_index is not None:

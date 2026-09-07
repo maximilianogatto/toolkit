@@ -59,7 +59,7 @@ class EigenmodeSimOptions:
 
 
 @dataclass
-class PortOptions:
+class EigenmodePortOptions:
     """Spec for a single boundary-condition port. `type` selects which SQDMetal port
     constructor is used and which of the other fields apply.
 
@@ -104,7 +104,7 @@ def _to_user_options(conf: EigenmodeSimOptions, dielectric_material: str) -> dic
     }
 
 
-def _create_port(eigen_sim: PALACE_Eigenmode_Simulation, subdesign, port: PortOptions) -> None:
+def _create_port(eigen_sim: PALACE_Eigenmode_Simulation, subdesign, port: EigenmodePortOptions) -> None:
     """Create `port` on `eigen_sim`. Unlike the driven-modal runner's version, there's no
     port index/excitation to track here - eigenmode ports are just boundary conditions."""
     if port.component_name not in subdesign.components:
@@ -144,7 +144,7 @@ def run_eigenmode_sim(
     open_terminations: Optional[list[tuple[str, str]]] = None,
     sim_options: Optional[EigenmodeSimOptions] = None,
     terminations: Optional[dict[tuple[str, str], str]] = None,
-    ports: Optional[list[PortOptions]] = None,
+    ports: Optional[list[EigenmodePortOptions]] = None,
     metallic_layer: int = 1,
     fine_mesh_components: Optional[list[FineMeshComponentOptions]] = None,
     fine_mesh_paths: Optional[list[MeshAlongPathOptions]] = None,
@@ -169,7 +169,7 @@ def run_eigenmode_sim(
         sim_options: PALACE solver/mesh/search options. Defaults to `EigenmodeSimOptions()`.
         terminations: passed straight through to `build_subdesign` for full control (e.g. to
             terminate a specific dangling pin as `'short'` instead of the `'open'` default).
-        ports: optional `PortOptions` list -- boundary conditions the eigenmode sees (e.g. a
+        ports: optional `EigenmodePortOptions` list -- boundary conditions the eigenmode sees (e.g. a
             Josephson junction's inductance, or a resistive CPW feed for external-Q via EPR).
             Unlike the driven-modal runner, none of these is "excited".
         metallic_layer: design layer id to render as metal (`add_metallic`).
@@ -187,13 +187,12 @@ def run_eigenmode_sim(
 
     Raises:
         ValueError: if the design's substrate material isn't 'silicon' or 'sapphire', or if a
-            `PortOptions` entry is invalid (see `PortOptions.__post_init__`).
+            `EigenmodePortOptions` entry is invalid (see `EigenmodePortOptions.__post_init__`).
     """
     t_start = time.perf_counter()
     sim_options = sim_options or EigenmodeSimOptions()
 
-    subdesign, dielectric_material = build_and_validate_subdesign(
-        design, name, components, open_terminations, terminations, "PALACE_Eigenmode_Simulation")
+    subdesign, dielectric_material = build_and_validate_subdesign(design, name, components, open_terminations, terminations, "PALACE_Eigenmode_Simulation")
 
     eigen_sim = PALACE_Eigenmode_Simulation(
         name=name,
@@ -239,6 +238,5 @@ def run_eigenmode_sim(
         logger.info("Running PALACE (%s, %d CPU(s))...", sim_options.mode, sim_options.num_cpus)
         t_run = time.perf_counter()
         data = eigen_sim.run(stream_output=True)
-        logger.info("Simulation finished in %.1f s (total %.1f s including setup).",
-                   time.perf_counter() - t_run, time.perf_counter() - t_start)
+        logger.info("Simulation finished in %.1f s (total %.1f s including setup).", time.perf_counter() - t_run, time.perf_counter() - t_start)
         return data

@@ -5,7 +5,7 @@ subprocess cleanup rationale, shared via `_common.palace_run_cleanup`). Like the
 runner, a magnetostatic solve has no frequency/sweep, but it does need at least one
 current-source excitation (a U-clip current injection,
 `create_current_source_with_Uclip_on_Route`/`..._on_Launcher`) -- that's this file's equivalent
-of the driven-modal runner's `PortOptions`.
+of the driven-modal runner's `DrivenModalPortOptions`.
 
 Developed by Maximiliano Gatto for QCT IFAE, Barcelona.
 """

@@ -3,9 +3,10 @@
 
 Only the parts with zero simulation-specific logic live here: mesh-refinement option dataclasses
 and their application, substrate-material validation, sub-design construction, and PALACE
-subprocess/gmsh cleanup. Excitation (`PortOptions`/`CurrentSourceOptions` and their `_create_*`
-functions) stays local to each runner -it already differs between them (e.g. driven ports have
-`excite`, eigenmode ports don't) and is likely to keep diverging per simulation type.
+subprocess/gmsh cleanup. Excitation (`EigenmodePortOptions`/`DrivenModalPortOptions`/
+`CurrentSourceOptions` and their `_create_*` functions) stays local to each runner -it already
+differs between them (e.g. driven ports have `excite`, eigenmode ports don't) and is likely to
+keep diverging per simulation type.
 
 Developed by Maximiliano Gatto for QCT IFAE, Barcelona.
 """
