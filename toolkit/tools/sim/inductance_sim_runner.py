@@ -29,6 +29,7 @@ from toolkit.tools.sim._common import (
     apply_amr,
     apply_fine_mesh,
     build_and_validate_subdesign,
+    check_solver_convergence,
     palace_run_cleanup,
 )
 
@@ -44,7 +45,7 @@ class InductanceSimOptions:
     solns_to_save: int = -1
     solver_order: int = 2
     solver_tol: float = 1.0e-8
-    solver_maxits: int = 200
+    solver_maxits: int = 5000
     fillet_resolution: int = 12
     palace_dir: str = ""                     # Path to the PALACE binary.
     num_cpus: int = 1
@@ -90,6 +91,13 @@ def _to_user_options(conf: InductanceSimOptions, dielectric_material: str) -> di
     }
 
 
+def _terminal_label(source: CurrentSourceOptions) -> str:
+    """Human-readable name for a terminal, used to label the inductance matrix."""
+    if source.type == "Uclip_on_Route":
+        return f"{source.component_name}.{source.pin_name}"
+    return source.component_name
+
+
 def _create_current_source(mag_sim: PALACE_Inductance_Simulation, subdesign, source: CurrentSourceOptions) -> None:
     if source.component_name not in subdesign.components:
         raise KeyError(f"Current source component {source.component_name!r} is not in the "
@@ -129,6 +137,7 @@ def run_inductance_sim(
     fine_mesh_components: Optional[list[FineMeshComponentOptions]] = None,
     fine_mesh_paths: Optional[list[MeshAlongPathOptions]] = None,
     amr_options: Optional[AMROptions] = None,
+    strict_convergence: bool = True,
 ):
     """Build, mesh, and run a PALACE inductance (magnetostatic) simulation end to end.
 
@@ -157,15 +166,30 @@ def run_inductance_sim(
         fine_mesh_components: optional per-group mesh refinement (`fine_mesh_components`).
         fine_mesh_paths: optional per-path mesh refinement (`fine_mesh_along_path`).
         amr_options: optional adaptive mesh refinement (`enable_mesh_refinement`).
+        strict_convergence: raise if any of PALACE's linear solves failed to converge. PALACE
+            only *warns* about that and still writes plausible-looking output files, so leaving
+            this on is what keeps a stalled solve from being read as a result.
 
     Returns:
-        Flux per unit current (Wb/A) through the integration area(s), or the raw magnetostatic
-        data dict if no `integration_areas` were supplied -- see
-        `PALACE_Inductance_Simulation.retrieve_data`.
+        A dict with the full magnetostatic result:
+
+        * `'inductance_matrix'`: (n_terminals, n_terminals) array in HENRIES -- PALACE's
+          `terminal-M.csv`. Diagonal = self-inductance of each terminal's current loop,
+          off-diagonal = mutual inductance between loops. THIS is the coupling number.
+        * `'terminal_names'`: labels in the same order as the matrix's rows/columns, i.e. the
+          order `current_sources` was given in.
+        * `'terminal_currents'`: the current (A) PALACE actually imposed on each terminal.
+          Not 1 A -- the matrix is already normalised by it, this is only for reference.
+        * `'surface_flux'`: (n_terminals, n_areas) magnetic flux in Wb through each
+          `integration_areas` polygon, per terminal excitation.
+        * `'flux_per_amp'`: `surface_flux / terminal_currents`, i.e. Wb/A. `None` if no
+          integration area was given.
+        * `'output_dir'`: where PALACE wrote its files (out.log, CSVs, paraview/).
 
     Raises:
         ValueError: if the design's substrate material isn't 'silicon' or 'sapphire', if
             `current_sources` is empty, or if a `CurrentSourceOptions` entry is invalid.
+        RuntimeError: if `strict_convergence` and a linear solve did not converge.
     """
     t_start = time.perf_counter()
     sim_options = sim_options or InductanceSimOptions()
@@ -215,7 +239,21 @@ def run_inductance_sim(
 
         logger.info("Running PALACE (%s, %d CPU(s))...", sim_options.mode, sim_options.num_cpus)
         t_run = time.perf_counter()
-        data = mag_sim.run()
+        flux_per_amp = mag_sim.run()
         logger.info("Simulation finished in %.1f s (total %.1f s including setup).",
                    time.perf_counter() - t_run, time.perf_counter() - t_start)
-        return data
+
+        check_solver_convergence(mag_sim, strict=strict_convergence)
+
+        # `mag_sim.run()` only hands back the flux-per-amp reduction (and only when integration
+        # areas were given); the inductance matrix itself is left in the output files, so read
+        # it back rather than making the caller do it.
+        raw = mag_sim.retrieve_magnetostatic_data()
+        return {
+            "inductance_matrix": raw["inductance_matrix"],
+            "terminal_names": [_terminal_label(s) for s in current_sources],
+            "terminal_currents": raw["terminal_I"].ravel(),
+            "surface_flux": raw["surface_Flux"],
+            "flux_per_amp": flux_per_amp if integration_areas else None,
+            "output_dir": mag_sim._output_data_dir,
+        }

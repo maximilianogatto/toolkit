@@ -14,6 +14,8 @@ Developed by Maximiliano Gatto for QCT IFAE, Barcelona.
 from __future__ import annotations
 
 import logging
+import os
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Optional
@@ -25,6 +27,55 @@ from toolkit.tools.sim.sim_subdesign import build_subdesign
 logger = logging.getLogger(__name__)
 
 SUPPORTED_DIELECTRICS = {"silicon", "sapphire"}
+
+
+# PALACE prints one of these per linear solve that ran out of iterations, e.g.
+#   Linear solver did not converge, norm(Ax-b)/norm(b) = 2.456e+01 (norm(b) = 3.639e-02)!
+# It is only a *warning* on stdout: the run still exits 0 and still writes terminal-M.csv,
+# domain-E.csv, ... filled with whatever the stalled Krylov iterate happened to be. Nothing
+# downstream notices, so the numbers look perfectly plausible while being meaningless. Hence
+# this check, called by the runners right after `sim.run()`.
+_NOT_CONVERGED_RE = re.compile(
+    r"Linear solver did not converge, norm\(Ax-b\)/norm\(b\) = ([0-9.eE+-]+)")
+
+
+def check_solver_convergence(sim, strict: bool = True) -> list[float]:
+    """Scan the PALACE log of the run just finished for non-converged linear solves.
+
+    Args:
+        sim: the `PALACE_Model_*` object that was just run (its `_output_data_dir` is where
+            PALACE wrote `out.log`).
+        strict: raise on a non-converged solve. `False` only logs an error -- use it when you
+            deliberately want to inspect a bad run's output files.
+
+    Returns:
+        The relative residual `norm(Ax-b)/norm(b)` of every solve that failed, in the order
+        PALACE ran them. Empty if everything converged.
+
+    Raises:
+        RuntimeError: if `strict` and at least one solve did not converge.
+    """
+    log_path = os.path.join(getattr(sim, "_output_data_dir", ""), "out.log")
+    if not os.path.isfile(log_path):
+        logger.warning("No PALACE log at %r -- skipping the convergence check.", log_path)
+        return []
+
+    with open(log_path, "r", errors="replace") as f:
+        residuals = [float(m.group(1)) for m in _NOT_CONVERGED_RE.finditer(f.read())]
+
+    if not residuals:
+        logger.info("All PALACE linear solves converged.")
+        return []
+
+    msg = (f"{len(residuals)} PALACE linear solve(s) did NOT converge "
+           f"(relative residuals: {', '.join(f'{r:.3e}' for r in residuals)}). "
+           f"The output files still exist but the numbers in them are meaningless. "
+           f"Raise `solver_maxits`, refine the mesh, and check that every current-source "
+           f"terminal cuts a galvanically CLOSED loop. Log: {log_path}")
+    if strict:
+        raise RuntimeError(msg)
+    logger.error(msg)
+    return residuals
 
 
 @dataclass
