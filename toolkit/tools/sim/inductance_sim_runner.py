@@ -31,6 +31,7 @@ from toolkit.tools.sim._common import (
     build_and_validate_subdesign,
     check_solver_convergence,
     palace_run_cleanup,
+    stream_palace_log,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ class InductanceSimOptions:
     meshing: str = "GMSH"                    # 'GMSH' or 'COMSOL'
     mode: str = "simPC"                      # 'simPC' or 'HPC'
     create_files: bool = True
+    stream_output: bool = True               # echo PALACE's log into the cell while it runs
 
 
 @dataclass
@@ -170,6 +172,10 @@ def run_inductance_sim(
             only *warns* about that and still writes plausible-looking output files, so leaving
             this on is what keeps a stalled solve from being read as a result.
 
+    Set `sim_options.stream_output = False` to silence PALACE's live log (it is echoed into the
+    cell by default, so a stalling Krylov residual is visible as it happens rather than minutes
+    later).
+
     Returns:
         A dict with the full magnetostatic result:
 
@@ -239,7 +245,22 @@ def run_inductance_sim(
 
         logger.info("Running PALACE (%s, %d CPU(s))...", sim_options.mode, sim_options.num_cpus)
         t_run = time.perf_counter()
-        flux_per_amp = mag_sim.run()
+        # Follow out.log live: a magnetostatic solve is otherwise several silent minutes, and the
+        # thing worth watching -- the per-terminal Krylov residual -- is exactly what tells you
+        # early that a terminal does not cut a closed loop.
+        with stream_palace_log(mag_sim, sim_options.stream_output):
+            try:
+                flux_per_amp = mag_sim.run()
+            except FileNotFoundError as err:
+                # SQDMetal's run() ends by reading surface-F.csv, which PALACE only writes when
+                # the config declares SurfaceFlux post-processing -- i.e. when integration_areas
+                # were given. Without them the solve still completes and every other result file
+                # is on disk, so swallow just that one read and carry on.
+                if 'surface-F.csv' not in str(err):
+                    raise
+                logger.info("No integration areas declared, so PALACE wrote no surface-F.csv; "
+                            "skipping SQDMetal's flux read.")
+                flux_per_amp = None
         logger.info("Simulation finished in %.1f s (total %.1f s including setup).",
                    time.perf_counter() - t_run, time.perf_counter() - t_start)
 

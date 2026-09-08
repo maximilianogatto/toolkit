@@ -2,6 +2,7 @@ from .eigenmode_sim_runner import (run_eigenmode_sim, EigenmodeSimOptions, Eigen
 from .drivenmodal_sim_runner import (run_drivenmodal_sim, DrivenModalSimOptions, DrivenModalPortOptions)
 from .capacitance_sim_runner import (run_capacitance_sim, CapacitanceSimOptions)
 from .inductance_sim_runner import (run_inductance_sim, InductanceSimOptions, CurrentSourceOptions)
+from .current_loops import (check_current_loops, plot_current_loops, CurrentLoopReport)
 
 # common options
 from ._common import (FineMeshComponentOptions, MeshAlongPathOptions, AMROptions)
@@ -25,6 +26,9 @@ __all__ = [
     "MeshAlongPathOptions",
     "AMROptions",
     "CurrentSourceOptions",
+    "check_current_loops",
+    "plot_current_loops",
+    "CurrentLoopReport",
     "save_design",
     "load_design",
     "build_subdesign",

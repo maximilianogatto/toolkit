@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Optional
@@ -76,6 +77,62 @@ def check_solver_convergence(sim, strict: bool = True) -> list[float]:
         raise RuntimeError(msg)
     logger.error(msg)
     return residuals
+
+
+@contextmanager
+def stream_palace_log(sim, enabled: bool = True, poll: float = 0.5):
+    """Echo PALACE's `out.log` into the current stdout while the solve runs.
+
+    PALACE is launched as a subprocess whose stdout is redirected straight to `out.log`, so from
+    a notebook a run is a silent multi-minute block -- you cannot see the mesh statistics, the
+    per-terminal iteration count, or a Krylov residual that is going nowhere until it is over.
+    This follows the log file from a daemon thread instead, which works regardless of where the
+    subprocess's own stdout went (in Jupyter that is the kernel's terminal, not the cell).
+
+    ANSI colour codes in the log are passed through untouched; JupyterLab renders them.
+
+    Args:
+        sim: the `PALACE_Model_*` about to be run. Its `_output_data_dir` must already be set,
+            i.e. call this after `prepare_simulation()`.
+        enabled: pass `False` to make this a no-op.
+        poll: seconds between reads of the log.
+    """
+    log_path = os.path.join(getattr(sim, "_output_data_dir", ""), "out.log")
+    if not enabled or not log_path:
+        yield
+        return
+
+    stop = threading.Event()
+
+    def tail():
+        pos = 0
+        while True:
+            try:
+                if os.path.isfile(log_path):
+                    size = os.path.getsize(log_path)
+                    if size < pos:      # PALACE truncates the log when it starts
+                        pos = 0
+                    if size > pos:
+                        with open(log_path, "r", errors="replace") as f:
+                            f.seek(pos)
+                            chunk = f.read()
+                            pos = f.tell()
+                        print(chunk, end="", flush=True)
+            except OSError:
+                pass
+            # Check the flag only after a read, so the last lines written before the process
+            # exited still make it out.
+            if stop.is_set():
+                return
+            stop.wait(poll)
+
+    thread = threading.Thread(target=tail, daemon=True, name="palace-log-tail")
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=max(2.0, poll * 4))
 
 
 @dataclass
