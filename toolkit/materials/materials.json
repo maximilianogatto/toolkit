@@ -1,0 +1,242 @@
+{
+  "_format": {
+    "description": "Material properties for simulation. Every number carries the source it was taken from; values without a traceable source are left out rather than guessed.",
+    "units": {
+      "permittivity": "relative",
+      "loss_tangent": "dimensionless",
+      "conductivity": "S/m",
+      "temperature_K": "K",
+      "frequency_GHz": "GHz"
+    },
+    "conditions": {
+      "any": "temperature independent (used for every condition)",
+      "room": "room temperature, ~293 K",
+      "4K": "liquid-helium / 4 K stage",
+      "mK": "dilution-refrigerator base temperature"
+    },
+    "anisotropic": "permittivity as [x, y, z] in the material frame; for uniaxial crystals [perp, perp, parallel] with the c-axis along z"
+  },
+  "materials": {
+    "vacuum": {
+      "type": "dielectric",
+      "aliases": ["vac"],
+      "description": "Free space.",
+      "conditions": {
+        "any": {
+          "permittivity": {"value": 1.0, "reference": "Definition"},
+          "loss_tangent": {"value": 0.0, "reference": "Definition"}
+        }
+      }
+    },
+
+    "sapphire_hemex": {
+      "type": "dielectric",
+      "aliases": ["hemex"],
+      "description": "Single-crystal Al2O3, HEMEX grade. Uniaxial.",
+      "conditions": {
+        "4K": {
+          "permittivity": {
+            "value": [9.2725, 9.2725, 11.3486], "temperature_K": 4.2,
+            "reference": "J. Krupka, K. Derzakowski, A. Abramowicz, M. E. Tobar, R. G. Geyer, IEEE Trans. Microw. Theory Tech. 47(6), 752-759 (1999)",
+            "note": "Whispering-gallery-mode measurement of high-purity sapphire."
+          }
+        },
+        "mK": {
+          "permittivity": {
+            "value": [9.2725, 9.2725, 11.3486], "temperature_K": 4.2,
+            "reference": "J. Krupka, K. Derzakowski, A. Abramowicz, M. E. Tobar, R. G. Geyer, IEEE Trans. Microw. Theory Tech. 47(6), 752-759 (1999)",
+            "note": "Measured at 4.2 K; assumed unchanged below."
+          },
+          "loss_tangent": {
+            "value": 1.5e-8,
+            "reference": "A. P. Read et al., Phys. Rev. Applied 19, 034064 (2023)",
+            "doi": "10.1103/PhysRevApplied.19.034064",
+            "note": "Upper bound: bulk loss tangent < 15(5)e-9, quantum regime (few photons)."
+          }
+        }
+      }
+    },
+
+    "sapphire_efg": {
+      "type": "dielectric",
+      "aliases": ["efg"],
+      "description": "Single-crystal Al2O3 grown by edge-defined film-fed growth (EFG). Uniaxial.",
+      "conditions": {
+        "4K": {
+          "permittivity": {
+            "value": [9.2725, 9.2725, 11.3486], "temperature_K": 4.2,
+            "reference": "J. Krupka, K. Derzakowski, A. Abramowicz, M. E. Tobar, R. G. Geyer, IEEE Trans. Microw. Theory Tech. 47(6), 752-759 (1999)",
+            "note": "Whispering-gallery-mode measurement of high-purity sapphire."
+          }
+        },
+        "mK": {
+          "permittivity": {
+            "value": [9.2725, 9.2725, 11.3486], "temperature_K": 4.2,
+            "reference": "J. Krupka, K. Derzakowski, A. Abramowicz, M. E. Tobar, R. G. Geyer, IEEE Trans. Microw. Theory Tech. 47(6), 752-759 (1999)",
+            "note": "Measured at 4.2 K; assumed unchanged below."
+          },
+          "loss_tangent": {
+            "value": 6.2e-8,
+            "reference": "A. P. Read et al., Phys. Rev. Applied 19, 034064 (2023)",
+            "doi": "10.1103/PhysRevApplied.19.034064",
+            "note": "Bulk loss tangent 62(7)e-9, quantum regime. The same work reports a substrate-air interface loss tangent of 12(2)e-4."
+          }
+        }
+      }
+    },
+
+    "silicon_hr": {
+      "type": "dielectric",
+      "aliases": ["hr_silicon", "fz_silicon"],
+      "description": "High-resistivity intrinsic float-zone silicon.",
+      "conditions": {
+        "mK": {
+          "permittivity": {
+            "value": 11.5,
+            "reference": "M. Checchin, D. Frolov, A. Lunin, A. Grassellino, A. Romanenko, Phys. Rev. Applied 18, 034013 (2022)",
+            "doi": "10.1103/PhysRevApplied.18.034013",
+            "note": "Low-temperature value quoted (not measured) in this paper."
+          },
+          "loss_tangent": {
+            "value": 2.7e-6, "temperature_K": 0.074, "frequency_GHz": 2.6,
+            "reference": "M. Checchin, D. Frolov, A. Lunin, A. Grassellino, A. Romanenko, Phys. Rev. Applied 18, 034013 (2022)",
+            "doi": "10.1103/PhysRevApplied.18.034013",
+            "note": "(100) wafer in a niobium TM010 cavity. Non-monotonic in temperature (minimum near 80 mK) and increases with electric field."
+          }
+        }
+      }
+    },
+
+    "ptfe": {
+      "type": "dielectric",
+      "aliases": ["teflon", "sptfe"],
+      "description": "Solid PTFE, as the dielectric of a Micro-Coax coaxial cable. PTFE in connectors may differ.",
+      "conditions": {
+        "room": {
+          "permittivity": {"value": 1.98, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.07"},
+          "loss_tangent": {"value": 2.5e-4, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.4e-4; frequency-independent fit to coax-line resonances"}
+        },
+        "4K": {
+          "permittivity": {"value": 2.01, "temperature_K": 4, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.07"},
+          "loss_tangent": {"value": 2.2e-4, "temperature_K": 4, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.2e-4"}
+        },
+        "mK": {
+          "permittivity": {"value": 2.01, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.07; base temperature ('BT' in the paper)"},
+          "loss_tangent": {"value": 1.9e-4, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.4e-4; base temperature ('BT' in the paper)"}
+        }
+      }
+    },
+
+    "ptfe_low_density": {
+      "type": "dielectric",
+      "aliases": ["ldptfe"],
+      "description": "Low-density PTFE, as the dielectric of a Micro-Coax coaxial cable. The same paper finds a Keycom low-density PTFE about 10x less lossy at cryogenic temperature.",
+      "conditions": {
+        "room": {
+          "permittivity": {"value": 1.70, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.01"},
+          "loss_tangent": {"value": 9e-5, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-1e-5"}
+        },
+        "4K": {
+          "permittivity": {"value": 1.70, "temperature_K": 4, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.01"},
+          "loss_tangent": {"value": 8.5e-5, "temperature_K": 4, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.2e-5"}
+        },
+        "mK": {
+          "permittivity": {"value": 1.70, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.01; base temperature ('BT' in the paper)"},
+          "loss_tangent": {"value": 6.6e-5, "reference": "P. Kurpiers, T. Walter, P. Magnard, Y. Salathe, A. Wallraff, arXiv:1612.07977, Table II", "note": "+-0.2e-5; base temperature ('BT' in the paper)"}
+        }
+      }
+    },
+
+    "copper": {
+      "type": "conductor",
+      "aliases": ["cu"],
+      "description": "Copper.",
+      "conditions": {
+        "room": {
+          "conductivity": {
+            "value": 5.8e7, "temperature_K": 293.15,
+            "reference": "International Annealed Copper Standard (100 % IACS), IEC 60028:1925",
+            "note": "Annealed commercial copper, rho = 1.7241e-8 Ohm m at 20 C. High-purity copper: rho = 1.678e-8 Ohm m (CRC Handbook), i.e. 5.96e7 S/m."
+          }
+        },
+        "4K": {
+          "unavailable": "At GHz frequencies and cryogenic temperature copper is in the anomalous skin-effect regime, so RRR * sigma(293 K) overestimates Q with Palace's classical Conductivity boundary. Pass an effective conductivity fitted to a measured Q, e.g. get_material('copper', '4K', conductivity=...)."
+        },
+        "mK": {
+          "unavailable": "At GHz frequencies and cryogenic temperature copper is in the anomalous skin-effect regime, so RRR * sigma(293 K) overestimates Q with Palace's classical Conductivity boundary. Pass an effective conductivity fitted to a measured Q, e.g. get_material('copper', 'mK', conductivity=...)."
+        }
+      }
+    },
+
+    "silver": {
+      "type": "conductor",
+      "aliases": ["ag"],
+      "description": "Silver.",
+      "conditions": {
+        "room": {
+          "conductivity": {"value": 6.30e7, "temperature_K": 293, "reference": "CRC Handbook of Chemistry and Physics, 97th ed., resistivity of pure metals", "note": "rho = 1.587e-8 Ohm m"}
+        }
+      }
+    },
+
+    "gold": {
+      "type": "conductor",
+      "aliases": ["au"],
+      "description": "Gold.",
+      "conditions": {
+        "room": {
+          "conductivity": {"value": 4.52e7, "temperature_K": 293, "reference": "CRC Handbook of Chemistry and Physics, 97th ed., resistivity of pure metals", "note": "rho = 2.214e-8 Ohm m"}
+        }
+      }
+    },
+
+    "aluminium": {
+      "type": "conductor",
+      "aliases": ["aluminum", "al"],
+      "description": "Aluminium. Superconducting below T_c = 1.2 K.",
+      "conditions": {
+        "room": {
+          "conductivity": {"value": 3.77e7, "temperature_K": 293, "reference": "CRC Handbook of Chemistry and Physics, 97th ed., resistivity of pure metals", "note": "rho = 2.650e-8 Ohm m"}
+        },
+        "mK": {
+          "superconducting": true,
+          "note": "Below T_c; modelled as PEC. Residual surface resistance and kinetic inductance are not included."
+        }
+      }
+    },
+
+    "niobium": {
+      "type": "conductor",
+      "aliases": ["nb"],
+      "description": "Niobium. Superconducting below T_c = 9.2 K.",
+      "conditions": {
+        "room": {
+          "conductivity": {"value": 6.58e6, "temperature_K": 293, "reference": "CRC Handbook of Chemistry and Physics, 97th ed., resistivity of pure metals", "note": "rho = 15.2e-8 Ohm m"}
+        },
+        "4K": {
+          "superconducting": true,
+          "note": "Below T_c; modelled as PEC. Residual surface resistance and kinetic inductance are not included."
+        },
+        "mK": {
+          "superconducting": true,
+          "note": "Below T_c; modelled as PEC. Residual surface resistance and kinetic inductance are not included."
+        }
+      }
+    },
+
+    "tantalum": {
+      "type": "conductor",
+      "aliases": ["ta"],
+      "description": "Tantalum. Superconducting below T_c = 4.4 K.",
+      "conditions": {
+        "room": {
+          "conductivity": {"value": 7.63e6, "temperature_K": 293, "reference": "CRC Handbook of Chemistry and Physics, 97th ed., resistivity of pure metals", "note": "rho = 13.1e-8 Ohm m"}
+        },
+        "mK": {
+          "superconducting": true,
+          "note": "Below T_c; modelled as PEC. Residual surface resistance and kinetic inductance are not included."
+        }
+      }
+    }
+  }
+}
