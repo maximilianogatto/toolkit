@@ -31,6 +31,14 @@ class Port(ABC):
     def _add_port(self, occ) -> tuple[tuple[int, int], tuple[int, int]]:
         """Add the port's solids to the OCC model: (metal to remove from the cavity, outer volume)."""
 
+    @property
+    def bore_radius(self) -> float:
+        """Radius of the clearance hole this port needs through the cavity wall, mm.
+
+        Only used to cut the hole when the metal part is exported for CAD.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not define a bore radius")
+
     @abstractmethod
     def classify_faces(self, insulator_faces: set[int], cavity_faces: set[int]) -> dict[str, set[int]]:
         """Faces of this port by role. Must contain "ring" (the lumped port) and "interface"."""

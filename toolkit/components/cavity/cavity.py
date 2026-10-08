@@ -168,6 +168,82 @@ class Cavity(ABC):
         finally:
             gmsh.finalize()
 
+    def export_solid(self, name, output: Path, wall: float = 5.0, shape: str = "box",
+                     split: str | None = None, verbose: bool = False) -> None:
+        """Write the **metal part** as CAD: the block the cavity is machined out of.
+
+        `export_step` writes the vacuum, which is the shape the field lives in. This writes its
+        complement: a block `wall` mm thick around the cavity, with the cavity and a clearance
+        hole per port taken out of it. That is the solid to open in Inventor or SolidWorks, and
+        the one the workshop needs. The format follows the suffix: .step/.stp (use this one),
+        .iges/.igs, or .brep.
+
+        `split="x"` or `"y"` also cuts the part in two along a plane containing the cavity axis.
+        For TM010 the wall currents run along z on the side wall and radially on the lids, so they
+        never cross such a seam -- a lid-height split would cut straight across them and cost Q.
+        """
+        gmsh.initialize()
+        gmsh.option.setNumber("General.Terminal", 0)
+        try:
+            gmsh.model.add(name)
+            occ = gmsh.model.occ
+            vacuum, insulators = self._build_geometry(occ, verbose=verbose)
+            negative = [(3, v) for v in vacuum] + [(3, v) for vols in insulators for v in vols]
+
+            lo, hi = self._bounds(occ, [(3, v) for v in vacuum])      # the cavity only, not the stubs
+            if shape == "box":
+                block = occ.addBox(*(lo - wall), *(hi - lo + 2 * wall))
+            elif shape == "cylinder":
+                centre = (lo + hi) / 2
+                radius = max(hi[0] - centre[0], hi[1] - centre[1]) + wall
+                block = occ.addCylinder(centre[0], centre[1], lo[2] - wall,
+                                        0, 0, hi[2] - lo[2] + 2 * wall, radius)
+            else:
+                raise ValueError(f"shape must be 'box' or 'cylinder', got {shape!r}")
+
+            holes = []
+            for port in self.ports:            # from outside the block, through the wall
+                reach = wall + 1.0
+                depth = max(port.length, getattr(port, "depth", 0.0))   # also clears the pin tip,
+                start = np.asarray(port.pos, dtype=float) - port.normal * reach   # which belongs to
+                holes.append((3, occ.addCylinder(*start, *(port.normal * (reach + depth)),
+                                                 port.bore_radius)))   # the connector, not the part
+
+            part, _ = occ.cut([(3, block)], negative + holes)
+            if split is not None:
+                part = self._split(occ, part, split)
+            occ.synchronize()
+
+            output.parent.mkdir(parents=True, exist_ok=True)
+            gmsh.write(str(output))
+            if verbose:
+                volume = sum(occ.getMass(3, v) for _, v in part)
+                print(f"wrote {output}: {len(part)} solid(s), {volume:.1f} mm^3 of metal")
+        finally:
+            gmsh.finalize()
+
+    @staticmethod
+    def _bounds(occ, dimtags) -> tuple[np.ndarray, np.ndarray]:
+        """Corners of the box containing several entities."""
+        boxes = np.array([occ.getBoundingBox(dim, tag) for dim, tag in dimtags])
+        return boxes[:, :3].min(axis=0), boxes[:, 3:].max(axis=0)
+
+    @classmethod
+    def _split(cls, occ, part, axis: str) -> list[tuple[int, int]]:
+        """Cut a solid in two with a plane through its centre, normal to `axis`."""
+        try:
+            i = {"x": 0, "y": 1, "z": 2}[axis]
+        except KeyError:
+            raise ValueError(f"split must be 'x', 'y' or 'z', got {axis!r}") from None
+        lo, hi = cls._bounds(occ, part)
+        margin = (hi - lo).max()
+        lo, hi = lo - margin, hi + margin
+        lo[i] = (lo[i] + hi[i]) / 2                       # half-space on the positive side
+        knife = (3, occ.addBox(*lo, *(hi - lo)))
+        upper, _ = occ.intersect(part, [knife], removeObject=False, removeTool=False)
+        lower, _ = occ.cut(part, [knife])
+        return upper + lower
+
     def _group_tags(self, groups: dict[str, int]) -> dict:
         """Describe every physical group geometrically, for a solver that only reads the STEP."""
         volumes = {"cavity", *(f"port{i}_insulator" for i in range(1, len(self.ports) + 1))}

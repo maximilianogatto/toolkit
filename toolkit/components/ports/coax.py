@@ -37,6 +37,10 @@ class CoaxPort(Port):
         eps_r = self.isolated_material.permittivity.value
         return 60 / np.sqrt(eps_r) * np.log(self.b / self.a)
 
+    @property
+    def bore_radius(self) -> float:
+        return self.b
+
     def _add_port(self, occ) -> tuple[tuple[int, int], tuple[int, int]]:
         pin = occ.addCylinder(*self.pos, *(self.normal * self.depth), self.a)
         outer = occ.addCylinder(*self.pos, *(self.normal * self.length), self.b)
