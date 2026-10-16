@@ -18,7 +18,7 @@ import numpy as np
 @dataclass
 class Port(ABC):
     """Common data of every port."""
-    pos: tuple[float, float, float]      # reference point of the port (for a coax: the port ring), mm
+    pos: tuple[float, float, float]      # reference point (for a coax: the ring, outside the wall), mm
     normal: tuple[float, float, float]   # direction pointing into the cavity (normalised on init)
     R: float = 50.0                      # port resistance, Ohm
     excite: bool = False                 # driven simulations: launch the signal from this port

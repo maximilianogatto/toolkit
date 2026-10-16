@@ -18,10 +18,28 @@ from .port import Port
 class CoaxPort(Port):
     """Coaxial feed: pin, insulator and shield.
 
-    `pos` is the port ring (the outer end of the coax) and `normal` points into the cavity. Both
-    lengths are measured from the ring: the insulator runs `length` (it must reach past the cavity
-    wall, where it is trimmed) and the pin runs `depth`, so it enters the cavity by `depth` minus
-    the ring-to-wall distance.
+    `pos` is the port ring, the outer end of the coax, which has to sit *outside* the cavity wall;
+    `normal` points into the cavity. Both lengths are measured from the ring, along `normal`:
+
+                pos --------------------------> normal
+                 |
+                 |<--- length --->|      insulator and shield, radius b
+                 |<-- depth -->|         pin, radius a
+                 |
+        =========|=========   wall
+                 |<- d ->|
+
+    with `d` the distance from the ring to the wall.
+
+    `length` only has to perforate the wall. Whatever reaches past it is trimmed away by the cut
+    with the cavity body, so the insulator left in the mesh is just the plug that fills the
+    clearance hole: none of it appears inside the cavity, and inside the cavity the port is only
+    the pin. A `length` shorter than `d` leaves no insulator at all and `Cavity` stops with
+    "Mismatch in number of ports and insulators/pins".
+
+    `depth` is the coupling knob: the pin enters the cavity by `depth - d`, and that stub is the
+    only part of the port the mode sees. A deeper pin couples more strongly and lowers the loaded
+    Q; `length` does not change the physics as long as it crosses the wall.
     """
     depth: float = 2.0      # pin length from the ring, mm
     length: float = 3.0     # insulator length from the ring, mm
