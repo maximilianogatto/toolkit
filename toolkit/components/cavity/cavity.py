@@ -3,7 +3,7 @@ import json
 
 import numpy as np
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 import gmsh
 from pathlib import Path
 from toolkit.materials.materials import Dielectric, Conductor, Material, get_material
@@ -179,9 +179,9 @@ class Cavity(ABC):
         mesh resolves the ports.
 
         `axes` draws a box with tics in mm -- around the model, or around what is on screen when
-        the view is zoomed -- plus a scale bar, and on a port view that port's sizes. The tics
-        give positions; the bar and the sizes give lengths, which is what you are after when you
-        ask how big something is.
+        the view is zoomed -- plus a scale bar and a panel of sizes: the port's on a port view,
+        the cavity's own everywhere else. The tics give positions; the bar and the sizes give
+        lengths, which is what you are after when you ask how big something is.
         `legend` writes the group names in the corner, each in its own colour. Both off gives a
         bare figure for a slide.
 
@@ -222,8 +222,10 @@ class Cavity(ABC):
             for view in views:
                 path = figs / f"{name}_{view}.png"
                 magnify = self._shoot(view, path, zoom, style, focus, axes)
-                notes = self._port_notes(int(view[4:]) - 1, groups) if (
-                    axes and view.startswith("port")) else None
+                notes = None
+                if axes:
+                    notes = (self._port_notes(int(view[4:]) - 1, groups)
+                             if view.startswith("port") else self._design_notes(name))
                 scale = across / magnify if across else None   # mm across this picture
                 if legend or notes or scale:
                     self._annotate(path, colours if legend else None, notes, scale)
@@ -332,20 +334,51 @@ class Cavity(ABC):
 
     @staticmethod
     def _panel(draw, font, size: int, rows: list[tuple[tuple | None, str]], right_edge) -> None:
-        """One box of text, with a colour chip per row where there is a colour."""
+        """One box of text, with a colour chip per row where there is a colour.
+
+        A double space in a line splits it into label and value, which are then set in two
+        columns: the font is proportional, so padding with spaces does not line numbers up.
+        """
         pad, step = size, round(size * 1.5)
         chip = size * 1.75 if any(colour for colour, _ in rows) else 0
-        text = max(draw.textlength(line, font=font) for _, line in rows)
-        width = pad + chip + text + pad
+        split = [line.split("  ", 1) if "  " in line else [line, ""] for _, line in rows]
+        labels = max(draw.textlength(label, font=font) for label, _ in split)
+        values = max(draw.textlength(value, font=font) for _, value in split)
+        gap = size * 0.6 if values else 0
+        width = pad + chip + labels + gap + values + pad
         left = pad if right_edge is None else right_edge - pad - width
         draw.rectangle((left, pad, left + width, pad + step * len(rows) + pad / 2),
                        fill=(255, 255, 255), outline=(170, 170, 170))
-        for row, (colour, line) in enumerate(rows):
+        for row, ((colour, _), (label, value)) in enumerate(zip(rows, split)):
             top = pad * 1.25 + step * row
             if colour:
                 draw.rectangle((left + pad / 2, top, left + pad / 2 + size, top + size),
                                fill=colour, outline=(120, 120, 120))
-            draw.text((left + pad / 2 + chip, top - size / 8), line, fill=(40, 40, 40), font=font)
+            draw.text((left + pad / 2 + chip, top - size / 8), label, fill=(40, 40, 40), font=font)
+            if value:
+                draw.text((left + pad / 2 + chip + labels + gap, top - size / 8), value,
+                          fill=(40, 40, 40), font=font)
+
+    def _design_notes(self, name: str) -> list[str]:
+        """The cavity's own dimensions, for the views that are not about one port.
+
+        Every field of `CavityOptions` is a mesh setting, so whatever a subclass declares on top
+        of it is, by construction, a dimension of the shape: no list to keep in step by hand, and
+        a new cavity class gets its sizes written out for free.
+        """
+        settings = {f.name for f in fields(CavityOptions)}
+        lines = [f"{name}  {type(self).__name__}"]
+        for item in fields(self.options):
+            if item.name in settings:
+                continue
+            value = getattr(self.options, item.name)
+            try:
+                numbers = np.atleast_1d(np.asarray(value, dtype=float))
+            except (TypeError, ValueError):                 # not a length: a material, a flag
+                lines.append(f"{item.name}  {value}")
+                continue
+            lines.append(f"{item.name}  " + " ".join(f"{n:.2f}" for n in numbers) + " mm")
+        return lines
 
     def _port_notes(self, index: int, groups: dict[str, int]) -> list[str]:
         """The sizes of port `index` (0-based), in millimetres, straight from the model.
@@ -365,13 +398,12 @@ class Cavity(ABC):
         if wall > port.depth:                               # the pin stops short of the wall
             wall = port.depth + (volume - ring * port.depth) / bore
         inside = port.depth - wall
-        return [f"port{index + 1}  ({type(port).__name__})",
-                f"pin dia    {2 * port.a:5.2f} mm",
-                f"bore dia   {2 * port.b:5.2f} mm",
-                f"wall       {wall:5.2f} mm",
-                (f"pin in     {inside:5.2f} mm" if inside >= 0 else
-                 f"pin short  {-inside:5.2f} mm"),
-                f"Z0         {port.z0:5.1f} ohm"]
+        return [f"port{index + 1}  {type(port).__name__}",
+                f"pin dia  {2 * port.a:.2f} mm",
+                f"bore dia  {2 * port.b:.2f} mm",
+                f"wall  {wall:.2f} mm",
+                (f"pin in  {inside:.2f} mm" if inside >= 0 else f"pin short  {-inside:.2f} mm"),
+                f"Z0  {port.z0:.1f} ohm"]
 
     @staticmethod
     def _axes_box(lo, hi) -> None:
