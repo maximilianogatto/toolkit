@@ -1,5 +1,7 @@
 from .cavity import Cavity, CavityOptions
 from .cylindrical import CylindricalCavity, CylindricalCavityOptions
+from .rectangular import RectangularCavity, RectangularCavityOptions
+from .pillbox import PillBoxCavity, PillBoxCavityOptions
 from toolkit.components.ports import CoaxPort   # kept here so older imports still work
 
 __all__ = [
@@ -7,5 +9,9 @@ __all__ = [
     "CavityOptions",
     "CoaxPort",
     "CylindricalCavity",
-    "CylindricalCavityOptions"
+    "CylindricalCavityOptions",
+    "RectangularCavity",
+    "RectangularCavityOptions",
+    "PillBoxCavity",
+    "PillBoxCavityOptions",
 ]
