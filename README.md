@@ -24,6 +24,7 @@ its path is passed per simulation as `palace_dir`.
 | `toolkit.components` | custom Qiskit-Metal `QComponent`s: transmons, fluxoniums, couplers | [README](toolkit/components/README.md) |
 | `toolkit.tools.sim` | PALACE simulations from a design: eigenmode, driven, capacitance, inductance | [README](toolkit/tools/sim/README.md) |
 | `toolkit.tools.comp_manipulation` | whole-design edits, e.g. fitting the chip to its contents | [README](toolkit/tools/comp_manipulation/README.md) |
+| `toolkit.components.cavity`, `.inserts`, `.layout` | 3D cavities with gmsh; importing Quantum Metal designs, GDS and STEP into them | [IMPORTING](toolkit/components/IMPORTING.md) |
 | `toolkit.fit` | placeholder for measurement fitting; currently empty | — |
 
 ## The flow

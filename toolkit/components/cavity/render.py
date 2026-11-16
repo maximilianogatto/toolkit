@@ -115,7 +115,7 @@ class RenderMixin:
         """Give every physical group its own colour, and say which is which."""
         colours = {}
         for i, (name, group) in enumerate(groups.items()):
-            dim = 3 if name == "cavity" or name.endswith("_insulator") else 2
+            dim = cls._group_dim(name)
             colour = cls._PALETTE[i % len(cls._PALETTE)]
             entities = gmsh.model.getEntitiesForPhysicalGroup(dim, group)
             gmsh.model.setColor([(dim, int(t)) for t in entities], *colour)

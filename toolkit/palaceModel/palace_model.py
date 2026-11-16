@@ -21,6 +21,7 @@ from pypalace.config import Config
 from pypalace.palace_env import get_palace_executable
 from pypalace.simulation import Simulation
 
+from toolkit.components.attributes import LumpedElement, palace_direction
 from toolkit.components.ports import CoaxPort
 from toolkit.materials import Conductor, Dielectric
 from toolkit.simModel import SimModel, SimModelOptions
@@ -45,20 +46,40 @@ class PalaceModel(SimModel):
         return {"Mesh": str(self.mesh_file), "L0": self.options.L0}
 
     def _config_domains(self, groups: dict[str, int]) -> dict:
-        """Volumes: the cavity and one insulator per port."""
+        """Volumes: the cavity, one insulator per port, and the dielectrics placed inside."""
         materials = [self._dielectric(self.cavity.volume_material, groups["cavity"], "cavity volume")]
         for i, port in enumerate(self.cavity.ports, start=1):
             materials.append(self._dielectric(port.isolated_material, groups[f"port{i}_insulator"], f"port{i} insulator"))
+        for name, region in self.cavity.regions.items():
+            if region.dim == 3:
+                materials.append(self._dielectric(region.attribute, groups[name], name, region.axes))
         return {"Materials": materials}
 
     def _config_boundaries(self, groups: dict[str, int]) -> dict:
-        """Faces: metals (cavity wall, pins, shields) and one lumped port per coax."""
-        metals = [(self.cavity.cavity_wall_material, groups["cavity_wall"], "cavity wall")]
+        """Faces: metals (cavity wall, pins, shields, sheets), one lumped port per coax, and one
+        per lumped element, numbered after the coax ports."""
+        metals = []
+        if "cavity_wall" in groups:          # absent when every outer face was assigned a role
+            metals.append((self.cavity.cavity_wall_material, groups["cavity_wall"], "cavity wall"))
         bcs = []
         for i, port in enumerate(self.cavity.ports, start=1):
             metals.append((port.pin_material, groups[f"port{i}_pin"], f"port{i} pin"))
             metals.append((port.shield_material, groups[f"port{i}_shield"], f"port{i} shield"))
             bcs.append(Boundaries.LumpedPort(Index=i, Attributes=[groups[f"port{i}"]], Direction="+R",R=port.R, Excitation=self._excitation(i, port)))
+
+        self.lumped_index = {}               # lumped element name -> Palace port index
+        for name, region in self.cavity.regions.items():
+            if region.dim != 2:
+                continue
+            if isinstance(region.attribute, LumpedElement):
+                element = region.attribute
+                index = len(self.cavity.ports) + len(self.lumped_index) + 1
+                self.lumped_index[name] = index
+                bcs.append(Boundaries.LumpedPort(Index=index, Attributes=[groups[name]],
+                                                 Direction=palace_direction(region.direction),
+                                                 R=element.R, L=element.L, C=element.C))
+            else:
+                metals.append((region.attribute, groups[name], name))
 
         pec = []
         for material, group, what in metals:
@@ -82,12 +103,12 @@ class PalaceModel(SimModel):
         """Arguments for `Config.add_Solver`: {"Simulation": Solver.<Type>(...), "Order": ...}."""
 
     @staticmethod
-    def _dielectric(material: Dielectric, group: int, what: str) -> dict:
+    def _dielectric(material: Dielectric, group: int, what: str, axes: list | None = None) -> dict:
         if not isinstance(material, Dielectric):
             raise TypeError(f"{what}: expected a Dielectric, got {material!r}")
         return Domains.Material(Attributes=[group], Permeability=material.permeability,
                                 Permittivity=material.permittivity.to_palace(),
-                                LossTan=material.loss_tangent.to_palace())
+                                LossTan=material.loss_tangent.to_palace(), MaterialAxes=axes)
 
     def _make_config(self, groups: dict[str, int]) -> Config:
         """Build and save the Palace config with pypalace."""

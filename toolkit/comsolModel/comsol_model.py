@@ -73,6 +73,9 @@ class ComsolModel(SimModel):
     # ---------- run ----------
     def run(self):
         """Export the geometry, build the COMSOL model, solve, and keep the model handle."""
+        if self.cavity.inserts or self.cavity.assignments:
+            raise NotImplementedError("The COMSOL backend does not translate inserts (chips, CAD "
+                                      "parts) or assigned faces yet: use the Palace backend.")
         self._export_geometry()
         self._client_handle = self._client()
         model = self._client_handle.create(self.name)

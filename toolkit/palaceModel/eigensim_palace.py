@@ -56,6 +56,25 @@ class EigensimPalace(PalaceModel):
         ports = ports or list(range(1, len(self.cavity.ports) + 1))
         return self._require_run().get_kappa_ext(mode, ports)
 
+    def participation(self, mode: int = 1) -> dict[str, float]:
+        """Energy-participation ratio of every lumped element in `mode`, by group name.
+
+        The fraction of the mode's inductive energy stored in each lumped inductor (a junction):
+        close to 1 for the qubit mode, small for a cavity mode, and the starting point of an
+        energy-participation analysis of the couplings.
+        """
+        self._require_run()
+        wanted = {name: index for name, index in self.lumped_index.items()
+                  if self.cavity.regions[name].attribute.L is not None}
+        if not wanted:
+            return {}
+        # port-EPR.csv has one column per *inductive* port, headed p[<index>]: read it by that
+        # header, because the column position is not the port index once coax ports exist
+        table = pd.read_csv(self.results_dir / "port-EPR.csv", skipinitialspace=True)
+        table.columns = [c.strip() for c in table.columns]
+        row = table[table["m"] == mode].iloc[0]
+        return {name: abs(float(row[f"p[{index}]"])) for name, index in wanted.items()}
+
     def results(self) -> pd.DataFrame:
         """One row per mode: frequency, loaded Q, kappa and kappa_ext of every port (Hz)."""
         sim = self._require_run()
@@ -65,5 +84,7 @@ class EigensimPalace(PalaceModel):
             row = {"mode": mode, "f_Hz": f, "Q": f / kappa if kappa else float("inf"), "kappa_Hz": kappa}
             for i in range(1, len(self.cavity.ports) + 1):
                 row[f"kappa_ext{i}_Hz"] = sim.get_kappa_ext(mode, [i])
+            for name, p in self.participation(mode).items():
+                row[f"p_{name}"] = p
             rows.append(row)
         return pd.DataFrame(rows)

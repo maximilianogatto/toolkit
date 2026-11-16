@@ -14,6 +14,8 @@ from pathlib import Path
 import gmsh
 import numpy as np
 
+from toolkit.materials import Dielectric
+
 
 class ExportMixin:
     def export_step(self, name, output: Path, tags: Path | None = None,
@@ -60,8 +62,10 @@ class ExportMixin:
         try:
             gmsh.model.add(name)
             occ = gmsh.model.occ
-            vacuum, insulators = self._build_geometry(occ, verbose=verbose)
+            vacuum, insulators, placed = self._build(occ, verbose=verbose)
             negative = [(3, v) for v in vacuum] + [(3, v) for vols in insulators for v in vols]
+            negative += [(3, v) for _, piece, tags in placed          # a chip is not machined metal
+                         if piece.dim == 3 and isinstance(piece.attribute, Dielectric) for v in tags]
 
             lo, hi = self._bounds(occ, [(3, v) for v in vacuum])      # the cavity only, not the stubs
             if shape == "box":
@@ -119,10 +123,9 @@ class ExportMixin:
 
     def _group_tags(self, groups: dict[str, int]) -> dict:
         """Describe every physical group geometrically, for a solver that only reads the STEP."""
-        volumes = {"cavity", *(f"port{i}_insulator" for i in range(1, len(self.ports) + 1))}
         out = {"length_unit": "mm", "groups": {}}
         for group_name, tag in groups.items():
-            dim = 3 if group_name in volumes else 2
+            dim = self._group_dim(group_name)
             entities = gmsh.model.getEntitiesForPhysicalGroup(dim, tag)
             out["groups"][group_name] = {
                 "dim": dim,
